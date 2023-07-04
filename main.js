@@ -261,8 +261,8 @@ async function main()
   canvas.addEventListener("mousedown", (e) => {
     // add attractor
     userInteracted = true;
-    if (audio.paused && uniforms.isRunning) audio.play();
     if (mouse.x < 0 || mouse.x > uniforms.rez || mouse.y < 0 || mouse.y > uniforms.rez) return;
+    if (audio.paused && uniforms.isRunning) audio.play();
     if (attractorsCount >= settings.maxAttractors) return;
     attractorsArray[attractorsCount * 3 + 0] = mouse.x;
     attractorsArray[attractorsCount * 3 + 1] = mouse.y;
