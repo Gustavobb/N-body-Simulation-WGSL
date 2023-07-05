@@ -19,25 +19,19 @@
   var<uniform> attractorsCount : i32;
 
 @group(1) @binding(5)
-  var<uniform> isRepelling : u32;
+  var<uniform> booleanFactors : vec2u;
 
 @group(1) @binding(6)
-  var<uniform> isRunning : u32;
+  var<uniform> visualFactors : vec2f;
 
 @group(1) @binding(7)
-  var<uniform> fadeFactor : f32;
+  var<uniform> maxForces : vec2f;
 
 @group(1) @binding(8)
-  var<uniform> hueShiftFactor : f32;
+  var<uniform> maxSpeed : f32;
 
 @group(1) @binding(9)
-  var<uniform> gForce : f32;
-
-@group(1) @binding(10)
-  var<uniform> maxForce : f32;
-
-@group(1) @binding(11)
-  var<uniform> maxSpeed : f32;
+  var<uniform> mouseAsAttractor : u32;
 
 // Other buffers
 @group(2) @binding(0)  
@@ -75,15 +69,15 @@ fn hueShift(col: vec3f) -> vec4f
   var P = v * dot(v, col);
   var U = col - P;
   var V = cross(v, U);
-  var colB = U * cos(hueShiftFactor * 6.2832) + V * sin(hueShiftFactor * 6.2832) + P;
-  return vec4f(colB, 1.0) * f32(hueShiftFactor > 0.0) + vec4f(col, 1.0) * f32(!(hueShiftFactor > 0.0));
+  var colB = U * cos(visualFactors.y * 6.2832) + V * sin(visualFactors.y * 6.2832) + P;
+  return vec4f(colB, 1.0) * f32(visualFactors.y > 0.0) + vec4f(col, 1.0) * f32(!(visualFactors.y > 0.0));
 }
 
 fn calculateForce(c1: vec2f, c2: vec2f) -> vec3f 
 {
   var d = distance(c1, c2) / rez;
-  var f = gForce / pow(d, 2.0);
-  f = clamp(f, 0.0, maxForce);
+  var f = maxForces.x / pow(d, 2.0);
+  f = clamp(f, 0.0, maxForces.y);
   var diff = normalize(c2 - c1) * f;
   return vec3f(diff, d);
 }
@@ -102,19 +96,19 @@ fn simulate(@builtin(global_invocation_id) id : vec3u)
   var p : vec2f = positions[id.x];
   var v : vec2f = velocities[id.x];
   
-  if (!(isRunning > 0))
+  if (!(booleanFactors.y > 0))
   {
     pixels[index(p)] = vec4f(0.5);
     return;
   }
 
   var idx = 0;
-  var a = vec3f(attractors[idx + 0], attractors[idx + 1], attractors[idx + 2]);
-  var force = calculateForce(p, a.xy);
-  var info = vec3f(force.xy * a.z, force.z * abs(a.z));
+  var a = vec3f(0.0);
+  var force = calculateForce(p, mousePos) * f32(mouseAsAttractor > 0);
+  var info = vec3f(force.xy * (1.0 - f32(booleanFactors.x) * 2.0), f32(mouseAsAttractor > 0) * force.z + f32(mouseAsAttractor == 0) * 1.0);
   var h = info.z;
 
-  for (var i = 1; i < attractorsCount; i++) 
+  for (var i = 0; i < attractorsCount; i++) 
   {
     idx = i * 3;
     a = vec3f(attractors[idx + 0], attractors[idx + 1], attractors[idx + 2]);
@@ -156,8 +150,8 @@ fn attractor(@builtin(global_invocation_id) id : vec3u)
 @compute @workgroup_size(16, 16)
 fn fade(@builtin(global_invocation_id) id : vec3u) 
 {
-  pixels[index(vec2f(id.xy))] *= fadeFactor;
+  pixels[index(vec2f(id.xy))] *= visualFactors.x;
   var hasMouse = distance(mousePos, vec2f(id.xy)) < 3.0;
-  var color = vec4f(1.0, 0.0, 0.0, 1.0) * f32(isRepelling > 0) + vec4f(0.0, 1.0, 0.0, 1.0) * f32(!(isRepelling > 0));
+  var color = vec4f(1.0, 0.0, 0.0, 1.0) * f32(booleanFactors.x > 0) + vec4f(0.0, 1.0, 0.0, 1.0) * f32(!(booleanFactors.x > 0));
   pixels[index(vec2f(id.xy))] += color * f32(hasMouse);
 }

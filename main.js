@@ -24,6 +24,7 @@ const uniforms = {
   fadeFactor: 0.9,
   hueShiftFactor: 0.0,
   isRepelling: false,
+  mouseAsAttractor: false,
   gForce: 0.01,
   maxForce: 0.1,
   maxSpeed: 5.0,
@@ -110,47 +111,35 @@ async function main()
   });
   gpu.queue.writeBuffer(attractorsCountBuffer, 0, new Int32Array([0]));
 
-  const isRepellingBuffer = gpu.createBuffer({
-    size: sizes.u32,
+  const booleanFactorsBuffer = gpu.createBuffer({
+    size: sizes.vec2,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
   });
-  gpu.queue.writeBuffer(isRepellingBuffer, 0, new Uint32Array([0]));
+  gpu.queue.writeBuffer(booleanFactorsBuffer, 0, new Uint32Array([0, 0]));
 
-  const isRunningBuffer = gpu.createBuffer({
-    size: sizes.u32,
+  const visualFactorsBuffer = gpu.createBuffer({
+    size: sizes.vec2,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
   });
-  gpu.queue.writeBuffer(isRunningBuffer, 0, new Uint32Array([1]));
+  gpu.queue.writeBuffer(visualFactorsBuffer, 0, new Float32Array([uniforms.fadeFactor, uniforms.hueShiftFactor]));
 
-  const fadeFactorBuffer = gpu.createBuffer({
-    size: sizes.f32,
+  const maxForcesBuffer = gpu.createBuffer({
+    size: sizes.vec2,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
   });
-  gpu.queue.writeBuffer(fadeFactorBuffer, 0, new Float32Array([uniforms.fadeFactor]));
-
-  const hueShiftFactorBuffer = gpu.createBuffer({
-    size: sizes.f32,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
-  });
-  gpu.queue.writeBuffer(hueShiftFactorBuffer, 0, new Float32Array([uniforms.hueShiftFactor]));
-
-  const gForceBuffer = gpu.createBuffer({
-    size: sizes.f32,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
-  });
-  gpu.queue.writeBuffer(gForceBuffer, 0, new Float32Array([uniforms.gForce]));
-
-  const maxForceBuffer = gpu.createBuffer({
-    size: sizes.f32,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
-  });
-  gpu.queue.writeBuffer(maxForceBuffer, 0, new Float32Array([uniforms.maxForce]));
+  gpu.queue.writeBuffer(maxForcesBuffer, 0, new Float32Array([uniforms.gForce, uniforms.maxForce]));
 
   const maxSpeedBuffer = gpu.createBuffer({
     size: sizes.f32,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
   });
   gpu.queue.writeBuffer(maxSpeedBuffer, 0, new Float32Array([uniforms.maxSpeed]));
+
+  const mouseAsAttractorBuffer = gpu.createBuffer({
+    size: sizes.u32,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+  });
+  gpu.queue.writeBuffer(mouseAsAttractorBuffer, 0, new Uint32Array([0]));
 
   const uniformsLayout = gpu.createBindGroupLayout({
     entries: [
@@ -164,8 +153,6 @@ async function main()
       { visibility, binding: 7, buffer: { type: "uniform" } },
       { visibility, binding: 8, buffer: { type: "uniform" } },
       { visibility, binding: 9, buffer: { type: "uniform" } },
-      { visibility, binding: 10, buffer: { type: "uniform" } },
-      { visibility, binding: 11, buffer: { type: "uniform" } },
     ],
   });
   const uniformsBuffersBindGroup = gpu.createBindGroup({
@@ -176,13 +163,11 @@ async function main()
       { binding: 2, resource: { buffer: countBuffer } },
       { binding: 3, resource: { buffer: mousePosBuffer } },
       { binding: 4, resource: { buffer: attractorsCountBuffer } },
-      { binding: 5, resource: { buffer: isRepellingBuffer } },
-      { binding: 6, resource: { buffer: isRunningBuffer } },
-      { binding: 7, resource: { buffer: fadeFactorBuffer } },
-      { binding: 8, resource: { buffer: hueShiftFactorBuffer } },
-      { binding: 9, resource: { buffer: gForceBuffer } },
-      { binding: 10, resource: { buffer: maxForceBuffer } },
-      { binding: 11, resource: { buffer: maxSpeedBuffer } },
+      { binding: 5, resource: { buffer: booleanFactorsBuffer } },
+      { binding: 6, resource: { buffer: visualFactorsBuffer } },
+      { binding: 7, resource: { buffer: maxForcesBuffer } },
+      { binding: 8, resource: { buffer: maxSpeedBuffer } },
+      { binding: 9, resource: { buffer: mouseAsAttractorBuffer } },
     ],
   });
 
@@ -271,8 +256,9 @@ async function main()
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.code != "Space") return;
-    uniforms.isRepelling = !uniforms.isRepelling;
+    if (e.code != "Escape") return;
+    uniforms.isRunning = !uniforms.isRunning;
+    writeUniforms();
   });
 
   const writeUniforms = () =>
@@ -282,45 +268,39 @@ async function main()
     settings.agentWorkgroups = Math.ceil(uniforms.count / settings.groupSize);
 
     gpu.queue.writeBuffer(
-      isRunningBuffer,
+      booleanFactorsBuffer,
       0,
-      new Uint32Array([uniforms.isRunning ? 1 : 0])
+      new Uint32Array([uniforms.isRepelling ? 1 : 0, uniforms.isRunning ? 1 : 0])
     );
     
-    if (userInteracted)
+    if (userInteracted && !(mouse.x < 0 || mouse.x > uniforms.rez || mouse.y < 0 || mouse.y > uniforms.rez))
     {
       if (audio.paused) audio.play();
       if (!uniforms.isRunning) audio.pause();
     }
 
     gpu.queue.writeBuffer(
-      fadeFactorBuffer,
+      visualFactorsBuffer,
       0,
-      new Float32Array([uniforms.fadeFactor])
+      new Float32Array([uniforms.fadeFactor, uniforms.hueShiftFactor])
     );
 
     gpu.queue.writeBuffer(
-      hueShiftFactorBuffer,
+      maxForcesBuffer,
       0,
-      new Float32Array([uniforms.hueShiftFactor])
-    );
-
-    gpu.queue.writeBuffer(
-      gForceBuffer,
-      0,
-      new Float32Array([uniforms.gForce])
-    );
-
-    gpu.queue.writeBuffer(
-      maxForceBuffer,
-      0,
-      new Float32Array([uniforms.maxForce])
+      new Float32Array([uniforms.gForce, uniforms.maxForce])
     );
 
     gpu.queue.writeBuffer(
       maxSpeedBuffer,
       0,
       new Float32Array([uniforms.maxSpeed])
+    );
+
+    gpu.queue.writeBuffer(
+      mouseAsAttractorBuffer,
+      0,
+      new Float32Array([uniforms.mouseAsAttractor ? 1 : 0])
     );
   };
 
@@ -373,12 +353,6 @@ async function main()
       attractorsArray
     );
 
-    gpu.queue.writeBuffer(
-      isRepellingBuffer,
-      0,
-      new Uint32Array([uniforms.isRepelling ? 1 : 0])
-    );
-
     pass.setPipeline(fadePipeline);
     pass.dispatchWorkgroups(settings.pixelWorkgroups, settings.pixelWorkgroups);
     
@@ -410,6 +384,7 @@ async function main()
   parametersFolder.add(uniforms, "maxSpeed").min(0).max(10).step(0.01);
   const attractorsFolder = gui.addFolder("Attractors");
   attractorsFolder.add(uniforms, "isRepelling").name("isRepelling");
+  attractorsFolder.add(uniforms, "mouseAsAttractor").name("mouseAsAttractor");
   const renderFolder = gui.addFolder("Render");
   renderFolder.add(uniforms, "fadeFactor").min(0).max(1).step(0.01);
   renderFolder.add(uniforms, "hueShiftFactor").min(0).max(1).step(0.01);
