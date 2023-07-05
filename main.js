@@ -14,11 +14,10 @@ const sizes = {
   bool: 1,
 };
 
-let userInteracted = false;
 const maxCount = 500000;
 const uniforms = {
   isRunning: true,
-  rez: 640,
+  rez: 768,
   time: 0,
   count: maxCount,
   fadeFactor: 0.9,
@@ -52,6 +51,11 @@ async function main()
   const adapter = await navigator.gpu.requestAdapter();
   const gpu = await adapter.requestDevice();
 
+  const canvas2 = document.createElement("canvas");
+  canvas2.width = 1024;
+  canvas2.height = 768;
+  document.body.appendChild(canvas2);
+
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = uniforms.rez * settings.scale;
   document.body.appendChild(canvas);
@@ -62,6 +66,16 @@ async function main()
     format: format,
     alphaMode: "opaque",
   });
+
+  canvas.style.position = "absolute";
+  canvas.style.top = "0px";
+  canvas.style.left = "0px";
+  canvas.style.zIndex = "1";
+
+  canvas2.style.position = "absolute";
+  canvas2.style.top = "0px";
+  canvas2.style.left = "0px";
+  canvas2.style.zIndex = "0";
 
   /////////////////////////
   // Set up memory resources
@@ -245,7 +259,6 @@ async function main()
 
   canvas.addEventListener("mousedown", (e) => {
     // add attractor
-    userInteracted = true;
     if (mouse.x < 0 || mouse.x > uniforms.rez || mouse.y < 0 || mouse.y > uniforms.rez) return;
     if (audio.paused && uniforms.isRunning) audio.play();
     if (attractorsCount >= settings.maxAttractors) return;
@@ -255,12 +268,13 @@ async function main()
     attractorsCount++;
   });
 
-  document.addEventListener("keydown", (e) => {
-    if (e.code != "Escape") return;
-    uniforms.isRunning = !uniforms.isRunning;
-    writeUniforms();
-  });
+  // document.addEventListener("keydown", (e) => {
+  //   if (e.code != "Escape") return;
+  //   uniforms.isRunning = !uniforms.isRunning;
+  //   writeUniforms();
+  // });
 
+  let paused = false;
   const writeUniforms = () =>
   {
     gpu.queue.writeBuffer(rezBuffer, 0, new Float32Array([uniforms.rez]));
@@ -273,12 +287,25 @@ async function main()
       new Uint32Array([uniforms.isRepelling ? 1 : 0, uniforms.isRunning ? 1 : 0])
     );
     
-    if (userInteracted && !(mouse.x < 0 || mouse.x > uniforms.rez || mouse.y < 0 || mouse.y > uniforms.rez))
-    {
-      if (audio.paused) audio.play();
-      if (!uniforms.isRunning) audio.pause();
-    }
+    // if (uniforms.mouseAsAttractor && !(mouse.x < 0 || mouse.x > uniforms.rez || mouse.y < 0 || mouse.y > uniforms.rez))
+    // {
+    //   if (audio.paused) audio.play();
+    //   if (!uniforms.isRunning) audio.pause();
+    // }
 
+    if (uniforms.mouseAsAttractor && audio.paused)
+      audio.play();
+    
+    if (!uniforms.isRunning) 
+    {
+      paused = true;
+      audio.pause();
+    }
+    else if (paused)
+    {
+      paused = false;
+      audio.play();
+    }
     gpu.queue.writeBuffer(
       visualFactorsBuffer,
       0,
@@ -318,11 +345,11 @@ async function main()
     pass.end();
     gpu.queue.submit([encoder.finish()]);
 
+    audio.pause();
     writeUniforms();
     // reset attractors
     attractorsCount = 0;
     for (let i = 0; i < settings.maxAttractors * sizes.vec3; i++) attractorsArray[i] = 0;
-    audio.pause();
   };
   reset();
 
