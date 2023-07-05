@@ -27,6 +27,7 @@ const uniforms = {
   gForce: 0.01,
   maxForce: 0.1,
   maxSpeed: 5.0,
+  killRadius: 0.0,
 };
 
 // CPU-only settings
@@ -155,6 +156,12 @@ async function main()
   });
   gpu.queue.writeBuffer(mouseAsAttractorBuffer, 0, new Uint32Array([0]));
 
+  const killRadiusBuffer = gpu.createBuffer({
+    size: sizes.f32,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+  });
+  gpu.queue.writeBuffer(killRadiusBuffer, 0, new Float32Array([uniforms.killRadius]));
+
   const uniformsLayout = gpu.createBindGroupLayout({
     entries: [
       { visibility, binding: 0, buffer: { type: "uniform" } },
@@ -167,6 +174,7 @@ async function main()
       { visibility, binding: 7, buffer: { type: "uniform" } },
       { visibility, binding: 8, buffer: { type: "uniform" } },
       { visibility, binding: 9, buffer: { type: "uniform" } },
+      { visibility, binding: 10, buffer: { type: "uniform" } },
     ],
   });
   const uniformsBuffersBindGroup = gpu.createBindGroup({
@@ -182,6 +190,7 @@ async function main()
       { binding: 7, resource: { buffer: maxForcesBuffer } },
       { binding: 8, resource: { buffer: maxSpeedBuffer } },
       { binding: 9, resource: { buffer: mouseAsAttractorBuffer } },
+      { binding: 10, resource: { buffer: killRadiusBuffer } },
     ],
   });
 
@@ -329,6 +338,12 @@ async function main()
       0,
       new Float32Array([uniforms.mouseAsAttractor ? 1 : 0])
     );
+
+    gpu.queue.writeBuffer(
+      killRadiusBuffer,
+      0,
+      new Float32Array([uniforms.killRadius])
+    );
   };
 
   /////////////////////////
@@ -409,6 +424,7 @@ async function main()
   parametersFolder.add(uniforms, "gForce").min(0).max(5).step(0.01);
   parametersFolder.add(uniforms, "maxForce").min(0).max(1).step(0.01);
   parametersFolder.add(uniforms, "maxSpeed").min(0).max(10).step(0.01);
+  parametersFolder.add(uniforms, "killRadius").min(0).max(0.2).step(0.01);
   const attractorsFolder = gui.addFolder("Attractors");
   attractorsFolder.add(uniforms, "isRepelling").name("isRepelling");
   attractorsFolder.add(uniforms, "mouseAsAttractor").name("mouseAsAttractor");

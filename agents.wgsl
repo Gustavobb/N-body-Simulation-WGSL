@@ -33,6 +33,9 @@
 @group(1) @binding(9)
   var<uniform> mouseAsAttractor : u32;
 
+@group(1) @binding(10)
+  var<uniform> killRadius : f32;
+
 // Other buffers
 @group(2) @binding(0)  
   var<storage, read_write> positions : array<vec2f>;
@@ -121,14 +124,14 @@ fn simulate(@builtin(global_invocation_id) id : vec3u)
 
   v += info.xy;
   var agentMaxSpeed = maxSpeed * min((f32(id.x)) + 0.5 , 1.0);
-  v = normalize(v) * min(length(v), agentMaxSpeed);
+  v = normalize(v) * min(length(v), agentMaxSpeed) * f32(h > killRadius);
 
   p += v;
   p = (p + rez) % rez;
 
-  velocities[id.x] = v;
   positions[id.x] = p;
-  pixels[index(p)] = hueShift(hsv2rgba(h, 1.0, 1.0).xyz);
+  velocities[id.x] = v;
+  pixels[index(p)] = hueShift(hsv2rgba(h, 1.0, 1.0).xyz) * f32(h > killRadius);
 }
 
 @compute @workgroup_size(256)
