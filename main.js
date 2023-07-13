@@ -28,6 +28,7 @@ const uniforms = {
   maxForce: 0.1,
   maxSpeed: 5.0,
   killRadius: 0.0,
+  randomInitVelocity: false,
 };
 
 // CPU-only settings
@@ -162,6 +163,12 @@ async function main()
   });
   gpu.queue.writeBuffer(killRadiusBuffer, 0, new Float32Array([uniforms.killRadius]));
 
+  const randomInitVelocityBuffer = gpu.createBuffer({
+    size: sizes.u32,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+  });
+  gpu.queue.writeBuffer(randomInitVelocityBuffer, 0, new Uint32Array([0]));
+
   const uniformsLayout = gpu.createBindGroupLayout({
     entries: [
       { visibility, binding: 0, buffer: { type: "uniform" } },
@@ -175,6 +182,7 @@ async function main()
       { visibility, binding: 8, buffer: { type: "uniform" } },
       { visibility, binding: 9, buffer: { type: "uniform" } },
       { visibility, binding: 10, buffer: { type: "uniform" } },
+      { visibility, binding: 11, buffer: { type: "uniform" } },
     ],
   });
   const uniformsBuffersBindGroup = gpu.createBindGroup({
@@ -191,6 +199,7 @@ async function main()
       { binding: 8, resource: { buffer: maxSpeedBuffer } },
       { binding: 9, resource: { buffer: mouseAsAttractorBuffer } },
       { binding: 10, resource: { buffer: killRadiusBuffer } },
+      { binding: 11, resource: { buffer: randomInitVelocityBuffer } },
     ],
   });
 
@@ -344,6 +353,12 @@ async function main()
       0,
       new Float32Array([uniforms.killRadius])
     );
+
+    gpu.queue.writeBuffer(
+      randomInitVelocityBuffer,
+      0,
+      new Float32Array([uniforms.randomInitVelocity])
+    );
   };
 
   /////////////////////////
@@ -420,6 +435,7 @@ async function main()
   gui.add({ reset }, "reset").name("Reset");
   gui.add(uniforms, "isRunning").name("isRunning");
   const parametersFolder = gui.addFolder("Parameters");
+  parametersFolder.add(uniforms, "randomInitVelocity").name("randomInitVelocity").onChange(reset);
   parametersFolder.add(uniforms, "count").min(0).max(500000).step(1);
   parametersFolder.add(uniforms, "gForce").min(0).max(5).step(0.01);
   parametersFolder.add(uniforms, "maxForce").min(0).max(1).step(0.01);

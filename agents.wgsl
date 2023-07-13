@@ -36,6 +36,9 @@
 @group(1) @binding(10)
   var<uniform> killRadius : f32;
 
+@group(1) @binding(11)
+  var<uniform> randomInitVelocity : u32;
+
 // Other buffers
 @group(2) @binding(0)  
   var<storage, read_write> positions : array<vec2f>;
@@ -90,7 +93,7 @@ fn reset(@builtin(global_invocation_id) id : vec3u)
 {
   var seed = f32(id.x)/f32(count);
   positions[id.x] = vec2(r(seed), r(seed + 0.1)) * rez;
-  velocities[id.x] = vec2(0.0001);
+  velocities[id.x] = (vec2(r(f32(id.x + 1)), r(f32(id.x + 2))) - 0.5) * f32(randomInitVelocity > 0) + vec2(0.0001);
 }
 
 @compute @workgroup_size(256)
